@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Reelock</string>
+    <string name="svc_desc">Detects when Instagram Reels or YouTube Shorts are open so Reelock can block them or enforce your daily time limit. Nothing is read, stored or sent anywhere.</string>
+</resources>

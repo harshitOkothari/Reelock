@@ -1,0 +1,9 @@
+build/
+.gradle/
+local.properties
+.idea/
+
+# Android signing keys
+*.jks
+*.keystore
+
