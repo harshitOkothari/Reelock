@@ -23,6 +23,15 @@ class Scan {
 }
 
 object Detector {
+    /** Labels that mark content from accounts you don't follow: the "Follow" button and Instagram's "Suggested ..." shelves. */
+    fun isOffFeedLabel(label: String): Boolean {
+        val l = label.trim()
+        if (l.equals("Follow", true)) return true
+        val prefixes = listOf("Suggested for you", "Suggested posts", "Suggested reels", "Suggested Reels", "Reels for you",
+            "Reels you might like", "More reels", "Suggested accounts", "Suggested videos")
+        return prefixes.any { l.startsWith(it, true) }
+    }
+
     /**
      * Reels  = Reels tab selected, OR a full-screen "Reel by..." player, OR an Instagram "clips_*" view while Home is not selected,
      *          OR a "Reels" title at the top of the screen (Reels opened from Explore / a profile / a DM).
@@ -68,12 +77,11 @@ object Detector {
                             (cd != null && cd.startsWith(a.tabDesc, true)))) tabSel = true
                 if (cd != null && a.reelDesc != null && cd.contains(a.reelDesc, true)) {
                     if (h >= screenH * 0.6f) player = true
-                    else if (h >= screenH * 0.2f && out.feedReelBottom < 0) out.feedReelBottom = nd.bottom
+                    else if (h >= screenH * 0.12f && out.feedReelBottom < 0) out.feedReelBottom = nd.bottom
                 }
                 if (a == App.IG && out.offFeedBottom < 0) {
                     val label = tx ?: cd
-                    if (label != null && (label.equals("Follow", true) || label.startsWith("Suggested for you", true) ||
-                                label.startsWith("Suggested posts", true)) && nd.top > screenH * 0.12f && nd.top < screenH * 0.8f) {
+                    if (label != null && isOffFeedLabel(label) && nd.top > screenH * 0.10f && nd.top < screenH * 0.85f) {
                         out.offFeedBottom = nd.bottom
                     }
                 }
@@ -106,10 +114,19 @@ class Engine {
     private var wasViewer = false
     private var lastStep = 0L
     private var acc = 0L
+    private var gapStart = -1L          // when a Reel was last confirmed, if the screen briefly stopped looking like a Reel
+    private var curApp: App? = null
     private var lastBlock = Long.MIN_VALUE / 2
     private var lastSkip = Long.MIN_VALUE / 2
 
-    fun reset() { wasViewer = false; acc = 0L }
+    /** Hard reset: the user left the Reels / app. Nothing is credited for the time in between. */
+    fun reset() {
+        val a = curApp
+        if (a != null && acc >= 500) Store.addUsed(a, 1)     // don't lose the last half-second of a session: round it
+        curApp = null
+        wasViewer = false; acc = 0L; gapStart = -1L
+        Diag.countApp = ""; Diag.countAt = 0L
+    }
 
     fun step(a: App, s: Scan, now: Long): List<Act> {
         val out = ArrayList<Act>()
@@ -119,15 +136,24 @@ class Engine {
         }
         if (s.viewer) {
             Diag.note = "reels player"; Diag.reelAt = Store.now(); Diag.reelHit = s.hit
-            if (wasViewer) {
-                val before = Store.limitSec(a) - Store.used(a)
-                acc += (now - lastStep).coerceIn(0L, 1500L)
-                while (acc >= 1000) { Store.addUsed(a, 1); acc -= 1000 }
-                val left = Store.limitSec(a) - Store.used(a)
-                if (!Store.passActive()) {
-                    if (before > 60 && left <= 60 && left > 0) out.add(Act.Toast("1 min of ${a.label} left"))
-                    if (before > 10 && left <= 10 && left > 0) out.add(Act.Toast("10 seconds left"))
-                }
+            // How much real time to credit since the last step:
+            //  - still on a Reel: the elapsed time
+            //  - a Reel came back within 2 s (screen flickered while swiping to the next one): the whole gap
+            //  - first time we see it: 250 ms (we notice it up to one poll late)
+            val credit = when {
+                wasViewer -> (now - lastStep).coerceIn(0L, 1500L)
+                gapStart >= 0 && now - gapStart <= 2000L -> now - gapStart
+                else -> 250L
+            }
+            gapStart = -1L
+            val before = Store.limitSec(a) - Store.used(a)
+            curApp = a
+            acc += credit
+            while (acc >= 1000) { Store.addUsed(a, 1); acc -= 1000 }
+            val left = Store.limitSec(a) - Store.used(a)
+            if (!Store.passActive()) {
+                if (before > 60 && left <= 60 && left > 0) out.add(Act.Toast("1 min of ${a.label} left"))
+                if (before > 10 && left <= 10 && left > 0) out.add(Act.Toast("10 seconds left"))
             }
             wasViewer = true; lastStep = now
             Diag.countApp = a.key; Diag.countAt = Store.now()
@@ -136,7 +162,12 @@ class Engine {
             }
             return out
         }
-        reset(); lastStep = now
+        // not a Reel on screen
+        if (s.home) { reset() }                          // explicitly on the Home tab: really left the Reels
+        else if (wasViewer) { gapStart = lastStep }      // could be a flicker between two Reels; wait and see
+        if (gapStart >= 0 && now - gapStart > 2000L) reset()
+        wasViewer = false; lastStep = now
+        Diag.countAt = 0L                                // never show "counting" while no Reel is on screen
         // Home feed clean-up (Instagram only): skip Reels and not-followed posts between your posts
         if (a == App.IG && s.home && !Store.passActive()) {
             if (Store.skipFeedReels && s.feedReelBottom >= 0) {

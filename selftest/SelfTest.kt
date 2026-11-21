@@ -241,6 +241,43 @@ fun main() {
     acts = run(Engine(), App.IG, igStory(), 3, startAt = intArrayOf(0))
     check("story never skipped", acts.isEmpty())
 
+    section("Suggested reels / suggested content in the feed")
+    fresh()
+    for (label in listOf("Suggested Reels", "Suggested for you", "suggested posts", "Reels for you", "Reels you might like", "More reels", "Suggested accounts")) {
+        val sg = ig(root(*(igTabs("home") + N(text = label, top = 700, bottom = 780)).toTypedArray()))
+        check("home: '$label' recognised", sg.offFeedBottom == 780 && !sg.viewer, "bottom=${sg.offFeedBottom}")
+    }
+    var sg = ig(root(*(igTabs("home") + N(desc = "Reel by someone, 12K views", top = 600, bottom = 940)).toTypedArray()))
+    check("small suggested-reel thumbnail in feed (14% height) -> feedReel", sg.feedReelBottom == 940)
+    acts = run(Engine(), App.IG, root(*(igTabs("home") + N(text = "Suggested Reels", top = 700, bottom = 780)).toTypedArray()), 3, startAt = intArrayOf(0))
+    check("'Suggested Reels' header -> skip action", acts.any { it.second is Act.Skip })
+    acts = run(Engine(), App.IG, root(*(igTabs("profile") + N(text = "Suggested for you", top = 700, bottom = 780)).toTypedArray()), 3, startAt = intArrayOf(0))
+    check("suggested label outside Home -> untouched", acts.isEmpty())
+
+    section("Counting accuracy and instant stop")
+    fresh(goalIg = 60)
+    e = Engine(); clk = intArrayOf(0)
+    val flick = root(N(text = "loading"))
+    repeat(100) { run(e, App.IG, igReelsTab(), 3, startAt = clk); run(e, App.IG, flick, 1, startAt = clk) }   // 400 s wall time, swiping flicker every 4 s
+    check("swiping flicker: counted ~100% of 400s", Store.used(App.IG) in 394..406, "used=${Store.used(App.IG)}")
+    fresh(goalIg = 60); e = Engine(); clk = intArrayOf(0)
+    run(e, App.IG, igReelsTab(), 10, startAt = clk); run(e, App.IG, igHomeFeedClean(), 10, startAt = clk); run(e, App.IG, igReelsTab(), 10, startAt = clk)
+    check("left to Home for 10s: that gap is NOT credited (20s, not 30s)", Store.used(App.IG) in 19..22, "used=${Store.used(App.IG)}")
+    fresh(goalIg = 60); e = Engine(); clk = intArrayOf(0)
+    run(e, App.IG, igReelsTab(), 5, startAt = clk); run(e, App.IG, flick, 3, startAt = clk); run(e, App.IG, igReelsTab(), 5, startAt = clk)
+    check("3s gap (>2s) is not credited (~10s)", Store.used(App.IG) in 9..12, "used=${Store.used(App.IG)}")
+    fresh(goalIg = 60); e = Engine(); clk = intArrayOf(0)
+    run(e, App.IG, igReelsTab(), 5, startAt = clk)
+    check("'counting' active while a Reel is on screen", Diag.countAt != 0L && Diag.countApp == "ig")
+    run(e, App.IG, igHomeFeedClean(), 1, startAt = clk)
+    check("'counting' cleared immediately after leaving the Reel", Diag.countAt == 0L)
+    fresh(goalIg = 60); e = Engine(); clk = intArrayOf(0)
+    run(e, App.IG, igReelsTab(), 5, startAt = clk); e.reset()
+    check("app left (hard reset) clears counting", Diag.countAt == 0L && Diag.countApp == "")
+    val u1 = Store.used(App.IG)
+    run(e, App.IG, igReelsTab(), 60, startAt = clk)
+    check("60s of reels adds 60s (no lag)", Store.used(App.IG) - u1 in 59..61, "added=${Store.used(App.IG) - u1}")
+
     // ============ STORE MATH ============
     section("Pace easing")
     fresh(goalIg = 0)

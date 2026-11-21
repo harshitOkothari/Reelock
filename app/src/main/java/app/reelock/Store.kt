@@ -49,6 +49,7 @@ fun fmtTime(min: Int): String {
     val m = min % 1440; val h = m / 60
     return "%d:%02d %s".format(if (h % 12 == 0) 12 else h % 12, m % 60, if (h < 12) "AM" else "PM")
 }
+fun fmtDurS(sec: Int): String = if (sec >= 3600) "${sec / 3600}h ${"%02d".format(sec % 3600 / 60)}m" else "${sec / 60}m ${"%02d".format(sec % 60)}s"
 fun fmtDur(sec: Int): String { val m = sec / 60; return if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m" }
 fun fmtClock(ms: Long): String {
     val c = Calendar.getInstance().apply { timeInMillis = ms }

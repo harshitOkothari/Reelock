@@ -91,8 +91,8 @@ fun TodayTab(ver: Int, on: Boolean, bump: () -> Unit) {
                 DayTicks(score, Ink)
                 Row {
                     Column(Modifier.weight(1f)) {
-                        Text(fmtDur(used), color = Ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                        Label("reels watched", soft)
+                        Text(fmtDurS(used), color = Ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                        Label("reels watched, all apps", soft)
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text("%.1f h".format(Store.hours), color = Ink, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
@@ -124,7 +124,7 @@ fun TodayTab(ver: Int, on: Boolean, bump: () -> Unit) {
                 Label("today's allowance")
                 App.values().filter { Store.enabled(it) }.forEach { a ->
                     val u = Store.used(a); val l = Store.limitSec(a)
-                    val live = Diag.countApp == a.key && System.currentTimeMillis() - Diag.countAt < 3000
+                    val live = Diag.countApp == a.key && Diag.countAt != 0L && System.currentTimeMillis() - Diag.countAt < 1500
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(a.label, color = Paper, fontSize = 15.sp, modifier = Modifier.weight(1f))
                         if (live) { Label("counting", Accent); Spacer(Modifier.width(10.dp)) }
@@ -389,7 +389,7 @@ fun ControlsTab(ver: Int, bump: () -> Unit, onRedo: () -> Unit) {
         Enter(10) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Btn("Redo setup", filled = false) { onRedo() }
-                Text("$NAME v2.4. $TAGLINE\nNot affiliated with Instagram, Meta or YouTube.", color = Muted, fontSize = 12.sp,
+                Text("$NAME v2.5. $TAGLINE\nNot affiliated with Instagram, Meta or YouTube.", color = Muted, fontSize = 12.sp,
                     textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), lineHeight = 18.sp)
             }
         }

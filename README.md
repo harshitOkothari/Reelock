@@ -20,5 +20,5 @@ The blocking logic (`Detector.kt`: screen scan + decision engine) is pure Kotlin
 In the app: Controls > Self-check shows when Reels, Stories and feed-skip were last seen.
 
 ## Checks that run without a phone or Gradle
-- `selftest/SelfTest.kt` - 70 scenario tests of the blocking engine (see above).
+- `selftest/SelfTest.kt` - 87 scenario tests of the blocking engine (see above).
 - `python3 tools/argcheck.py app/src/main/java/app/reelock` - checks every call of the project's own UI functions against their definitions.

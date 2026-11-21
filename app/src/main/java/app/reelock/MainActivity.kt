@@ -83,7 +83,7 @@ fun Shell(onRedo: () -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
     var ver by remember { mutableIntStateOf(0) }
     var on by remember { mutableStateOf(serviceOn(ctx)) }
-    LaunchedEffect(Unit) { while (true) { on = serviceOn(ctx); ver++; delay(1000) } }
+    LaunchedEffect(Unit) { while (true) { on = serviceOn(ctx); ver++; delay(500) } }
     Backdrop {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             AnimatedContent(

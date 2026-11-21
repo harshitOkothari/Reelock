@@ -37,6 +37,7 @@ class GuardService : AccessibilityService() {
     private var loopRunning = false
     private var missingSince = 0L
     private var lastStep = 0L
+    private var lastEventStep = 0L
 
     /**
      * ONE loop does everything: every 500 ms while Instagram / YouTube is in front it scans the screen and
@@ -62,6 +63,13 @@ class GuardService : AccessibilityService() {
         if (!Store.enabled(app)) return
         if (watch != app) { watch = app; engine.reset(); missingSince = 0L }
         if (!loopRunning) { loopRunning = true; lastStep = SystemClock.uptimeMillis(); h.post(loop) }
+        else {                                  // react to the screen changing right away, not only every 500 ms
+            val now = SystemClock.uptimeMillis()
+            if (now - lastEventStep >= 250) {
+                lastEventStep = now
+                try { step(app) } catch (t: Throwable) { Diag.err = t.javaClass.simpleName + ": " + (t.message ?: "") }
+            }
+        }
     }
 
     private fun stopWatch() {
@@ -69,10 +77,20 @@ class GuardService : AccessibilityService() {
         h.removeCallbacks(loop); loopRunning = false
     }
 
-    /** The window of [a], even when it is not the "active" one. */
+    /**
+     * The window of [a] - but only while it is the ACTIVE (focused) window. As soon as you press Home, open Reelock,
+     * pull down the notification shade or lock the phone, it is no longer active and counting stops immediately.
+     */
     private fun findRoot(a: App): AccessibilityNodeInfo? {
         try {
-            for (w in windows) { val r = w.root; if (r != null && r.packageName?.toString() == a.pkg) return r }
+            val ws = windows
+            if (ws.isNotEmpty()) {
+                for (w in ws) {
+                    val r = w.root
+                    if (r != null && r.packageName?.toString() == a.pkg && (w.isActive || w.isFocused)) return r
+                }
+                return null
+            }
         } catch (_: Throwable) { }
         val r = rootInActiveWindow
         return if (r != null && r.packageName?.toString() == a.pkg) r else null
@@ -85,6 +103,7 @@ class GuardService : AccessibilityService() {
             if (missingSince == 0L) missingSince = now
             if (now - missingSince > 4000) stopWatch()   // left the app
             engine.reset()
+            Diag.note = "not in ${a.label.substringBefore(' ')}"
             return
         }
         missingSince = 0L
