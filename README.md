@@ -5,6 +5,10 @@ Instagram: Stories are always allowed. Reels tab / player blocked or time-boxed;
 
 Features: daily limits (None/5/10/15/20 min per app), Reel Pass, Focus Lock, Sleep Mode, gradual pace, time-reclaimed tracking, focus score and levels, weekly review, hourly scroll pattern, streaks, milestones, four accent themes, share progress, 1-minute warnings, diagnostics. Fonts: Manrope + Instrument Serif (OFL, see docs/LICENSES.md).
 
+## Water popup (new)
+Triple-tap the back of a Samsung phone -> a small "how much water?" window opens over whatever app you are in. Pick 100 / 250 / 500 ml with one tap or set an exact amount on the ruler; the glass fills toward your daily target and the window closes itself. Only the last 7 days are stored. It is a see-through activity (`WaterActivity`), so no overlay permission and no background service.
+Setup: Good Lock > RegiStar > Back-tap action > Triple tap > Open app > **Reelock Water**. Also available as the long-press shortcut on the Reelock icon and as a tile on the Today tab.
+
 ## Build
 Push to GitHub -> Actions -> "Build" -> artifacts: `Reelock-apk` (install on phone) and `Reelock-playstore-aab` (Play Console).
 Then: Settings > Accessibility > Reelock > ON. See PLAY_STORE.md for publishing.

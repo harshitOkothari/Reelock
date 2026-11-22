@@ -108,6 +108,7 @@ fun TodayTab(ver: Int, on: Boolean, bump: () -> Unit) {
                 Stat("${Store.passesToday()}/3", "passes used", Modifier.weight(1f))
             }
         }
+        Enter(3) { WaterTile() }
         Enter(3) {
             Tile {
                 Row(verticalAlignment = Alignment.CenterVertically) {

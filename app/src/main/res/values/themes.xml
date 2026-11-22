@@ -5,4 +5,14 @@
         <item name="android:statusBarColor">#0B0B0A</item>
         <item name="android:navigationBarColor">#0B0B0A</item>
     </style>
+    <!-- see-through window for the water popup: the app you were in stays visible behind it -->
+    <style name="Theme.Popup" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

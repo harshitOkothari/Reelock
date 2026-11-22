@@ -10,6 +10,17 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity>
+        <!-- Floating water popup. Point Samsung RegiStar (back-tap) at this entry: "Reelock Water". -->
+        <activity android:name=".WaterActivity" android:exported="true"
+            android:label="@string/water_name" android:icon="@mipmap/ic_water"
+            android:theme="@style/Theme.Popup" android:launchMode="singleTask"
+            android:taskAffinity="" android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
         </activity>
         <activity android:name=".BlockActivity" android:exported="false"
             android:excludeFromRecents="true" android:taskAffinity="" />

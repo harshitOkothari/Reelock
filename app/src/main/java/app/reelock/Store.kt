@@ -131,6 +131,39 @@ object Store {
         get() = sp.getLong("pass", 0L)
         set(v) = putL("pass", v)
 
+    // ---- water log: only the last 7 days (today + 6 before) are ever kept ----
+    const val WATER_DAYS = 7
+    /** daily target in ml */
+    var waterGoal: Int
+        get() = sp.getInt("w_goal", 2500)
+        set(v) = putI("w_goal", v.coerceIn(500, 6000))
+    /** amount the ruler starts on in the popup */
+    var waterPick: Int
+        get() = sp.getInt("w_pick", 250)
+        set(v) = putI("w_pick", v)
+    fun waterOn(d: LocalDate) = sp.getInt("wt_${k(d)}", 0)
+    fun waterToday() = waterOn(today())
+    /** adds (or, with a negative number, removes) water for today, then drops everything older than 7 days */
+    fun addWater(ml: Int) {
+        val t = maxOf(0, waterToday() + ml)
+        sp.edit().putInt("wt_${k(today())}", t).putInt("w_last", if (ml > 0) ml else 0).apply()
+        pruneWater()
+    }
+    /** size of the most recent add, so it can be undone; 0 when there is nothing to undo */
+    fun waterLast() = sp.getInt("w_last", 0)
+    fun undoWater() { val l = waterLast(); if (l > 0) { addWater(-l); sp.edit().putInt("w_last", 0).apply() } }
+    /** oldest first: the 7 days ending today */
+    fun waterWeek(): List<Pair<LocalDate, Int>> =
+        (WATER_DAYS - 1 downTo 0).map { val d = today().minusDays(it.toLong()); d to waterOn(d) }
+    fun pruneWater() {
+        val oldest = k(today().minusDays((WATER_DAYS - 1).toLong()))
+        val e = sp.edit(); var any = false
+        for (key in sp.all.keys.toList()) {
+            if (key.startsWith("wt_") && key.substring(3) < oldest) { e.remove(key); any = true }
+        }
+        if (any) e.apply()
+    }
+
     fun startDate(): LocalDate = dateOf(startedAt)
     fun enabled(a: App) = sp.getBoolean("en_${a.key}", true)
     fun setEnabled(a: App, v: Boolean) = putB("en_${a.key}", v)
