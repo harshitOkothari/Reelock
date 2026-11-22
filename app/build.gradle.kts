@@ -14,8 +14,8 @@ android {
         applicationId = "app.reelock"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "2.5"
+        versionCode = 10
+        versionName = "2.6"
     }
     signingConfigs {
         create("reelock") {

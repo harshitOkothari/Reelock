@@ -19,7 +19,7 @@ enum class App(
     val reelDesc: String?           // full-screen player content-description fragment
 ) {
     IG("com.instagram.android", "Instagram Reels", "ig",
-        listOf("clips_viewer", "root_clips_layout", "clips_video_container", "clips_swipe_refresh"), "clips_tab", "Reels", "Reel by"),
+        listOf("clips_viewer", "root_clips_layout"), "clips_tab", "Reels", "Reel by"),
     YT("com.google.android.youtube", "YouTube Shorts", "yt",
         listOf("reel_recycler", "reel_player", "shorts_player", "reel_watch", "shorts_fragment"), null, "Shorts", null)
 }
@@ -38,6 +38,7 @@ object Diag {
     var reelHit = ""
     var storyAt = 0L
     var skipAt = 0L
+    var ignoredAt = 0L
     var ids = ""
     var seen = LinkedHashSet<String>()
     var labels = LinkedHashSet<String>()
@@ -60,7 +61,11 @@ object Store {
     private lateinit var sp: SharedPreferences
     private val fmt = DateTimeFormatter.ofPattern("yyyyMMdd")
     fun init(c: Context) {
-        if (!::sp.isInitialized) sp = c.applicationContext.getSharedPreferences("reelock", Context.MODE_PRIVATE)
+        if (!::sp.isInitialized) {
+            sp = c.applicationContext.getSharedPreferences("reelock", Context.MODE_PRIVATE)
+            // v2.6: "only people I follow" auto-scrolled the whole feed (most posts have a Follow button). Reset it to OFF once.
+            if (!sp.getBoolean("feed_v26", false)) sp.edit().putBoolean("followingOnly", false).putBoolean("skipFeedReels", true).putBoolean("feed_v26", true).apply()
+        }
     }
     private fun zone() = ZoneId.systemDefault()
     private fun k(d: LocalDate) = d.format(fmt)
@@ -86,7 +91,7 @@ object Store {
         set(v) = putB("skipFeedReels", v)
     /** Instagram home feed: auto-scroll past posts from accounts you do not follow */
     var followingOnly: Boolean
-        get() = sp.getBoolean("followingOnly", true)
+        get() = sp.getBoolean("followingOnly", false)
         set(v) = putB("followingOnly", v)
     var theme: Int
         get() = sp.getInt("theme", 0)

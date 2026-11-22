@@ -33,7 +33,7 @@ class FakePrefs : SharedPreferences {
 
 const val H = 2400
 class N(
-    override val id: String? = null, override val desc: String? = null, override val text: String? = null,
+    override val id: String? = null, override val desc: String? = null, override val text: String? = null, override val cls: String? = null,
     override val selected: Boolean = false, override val visible: Boolean = true,
     override val top: Int = 0, override val bottom: Int = 0, kids: List<N> = emptyList()
 ) : Nd { override val children: List<Nd> = kids }
@@ -51,7 +51,7 @@ fun igReelsTabWithReelViewerNames() = root(*(igTabs("reels") + N("reel_viewer_te
 fun igStory() = root(N("reel_viewer_root", top = 0, bottom = 2400), N("reel_viewer_texture_view", top = 0, bottom = 2400), N("reel_viewer_message_composer", text = "Send message", top = 2200, bottom = 2400))
 fun igHomeFeedClean() = root(*(igTabs("home") + N(desc = "Photo by friend", top = 300, bottom = 1500) + N("row_feed_photo_profile_name", text = "friend", top = 320, bottom = 400)).toTypedArray())
 fun igHomeFeedWithInlineReel() = root(*(igTabs("home") + N(desc = "Reel by someone. Double tap to play or pause.", top = 400, bottom = 1500)).toTypedArray())
-fun igHomeFeedWithClipsIds() = root(*(igTabs("home") + N("clips_media_component", top = 400, bottom = 1600)).toTypedArray())
+fun igHomeFeedWithClipsIds() = root(*(igTabs("home") + N("clips_viewer_media", top = 400, bottom = 1600)).toTypedArray())
 fun igHomeFeedSuggested() = root(*(igTabs("home") + N(text = "Follow", top = 330, bottom = 420) + N(desc = "Photo by stranger", top = 300, bottom = 1500)).toTypedArray())
 fun igHomeFeedSuggestedHeader() = root(*(igTabs("home") + N(text = "Suggested for you", top = 600, bottom = 680)).toTypedArray())
 fun igExploreReelPlayer() = root(N(desc = "Reel by someone. Double tap to play or pause.", top = 0, bottom = 2400), N(text = "Reels", top = 90, bottom = 160))
@@ -118,7 +118,7 @@ fun main() {
     s = ig(igHomeFeedSuggestedHeader()); check("Home feed 'Suggested for you' -> offFeed", s.offFeedBottom == 680)
     s = ig(igExploreReelPlayer()); check("Reel opened from Explore (player desc) -> viewer", s.viewer)
     s = ig(igExploreReelTitleOnly()); check("Reel opened from Explore (clips id, no tab) -> viewer", s.viewer)
-    s = ig(root(N(text = "Reels", top = 90, bottom = 160))); check("'Reels' title at top -> viewer", s.viewer)
+    s = ig(root(N(text = "Reels", top = 90, bottom = 160))); check("'Reels' text alone is NOT enough (no false positives)", !s.viewer)
     s = ig(igHiddenClips()); check("Invisible clips view -> nothing", !s.viewer)
     s = ig(igDmWithFollowText()); check("'Follow' outside Home: Home flag is off", !s.home && !s.viewer)
     fresh(); check("'Follow' outside Home -> engine does nothing", run(Engine(), App.IG, igDmWithFollowText(), 4).isEmpty())
@@ -221,7 +221,7 @@ fun main() {
     var skips = acts.filter { it.second is Act.Skip }
     check("feed reel -> skip action", skips.isNotEmpty() && (skips[0].second as Act.Skip).bottom == 1500)
     check("self-check: skip timestamp recorded", Diag.skipAt != 0L)
-    check("skips rate limited (>=1.1s apart)", skips.zipWithNext().all { (a, b) -> b.first - a.first >= 1100 })
+    check("skips rate limited (>=1.8s apart)", skips.zipWithNext().all { (a, b) -> b.first - a.first >= 1800 })
     Store.skipFeedReels = false
     acts = run(Engine(), App.IG, igHomeFeedWithInlineReel(), 3, startAt = intArrayOf(0))
     check("skipFeedReels OFF -> no skip", acts.none { it.second is Act.Skip })
@@ -248,7 +248,9 @@ fun main() {
         check("home: '$label' recognised", sg.offFeedBottom == 780 && !sg.viewer, "bottom=${sg.offFeedBottom}")
     }
     var sg = ig(root(*(igTabs("home") + N(desc = "Reel by someone, 12K views", top = 600, bottom = 940)).toTypedArray()))
-    check("small suggested-reel thumbnail in feed (14% height) -> feedReel", sg.feedReelBottom == 940)
+    check("small suggested-reel thumbnail in feed (14% height) -> feedReel but not big", sg.feedReelBottom == 940 && !sg.feedReelBig)
+    acts = run(Engine(), App.IG, root(*(igTabs("home") + N(desc = "Reel by someone, 12K views", top = 600, bottom = 940)).toTypedArray()), 4, startAt = intArrayOf(0))
+    check("small thumbnail never triggers an auto-scroll", acts.none { it.second is Act.Skip })
     acts = run(Engine(), App.IG, root(*(igTabs("home") + N(text = "Suggested Reels", top = 700, bottom = 780)).toTypedArray()), 3, startAt = intArrayOf(0))
     check("'Suggested Reels' header -> skip action", acts.any { it.second is Act.Skip })
     acts = run(Engine(), App.IG, root(*(igTabs("profile") + N(text = "Suggested for you", top = 700, bottom = 780)).toTypedArray()), 3, startAt = intArrayOf(0))
@@ -277,6 +279,53 @@ fun main() {
     val u1 = Store.used(App.IG)
     run(e, App.IG, igReelsTab(), 60, startAt = clk)
     check("60s of reels adds 60s (no lag)", Store.used(App.IG) - u1 in 59..61, "added=${Store.used(App.IG) - u1}")
+
+    section("DM / photo picker / camera are never touched (the bug: could not send photos or videos)")
+    fresh(goalIg = 0)
+    val dmThread = root(*(igTabs("home") + listOf(
+        N(cls = "android.widget.EditText", text = "Message...", top = 2200, bottom = 2340),
+        N("row_thread_composer_edittext", top = 2200, bottom = 2340),
+        N(text = "Suggested for you", top = 700, bottom = 780),
+        N(desc = "Reel by someone, 12K views", top = 900, bottom = 1700),
+        N("clips_viewer_stale", top = 0, bottom = 2250))).toTypedArray())
+    s = ig(dmThread); check("DM thread: ignored, not viewer, not home", s.ignored && !s.viewer && !s.home && s.offFeedBottom < 0)
+    acts = run(Engine(), App.IG, dmThread, 10, startAt = intArrayOf(0))
+    check("DM thread: no block, no skip, nothing counted (limit None)", acts.isEmpty() && Store.used(App.IG) == 0, acts.toString())
+    check("self-check: ignored timestamp recorded", Diag.ignoredAt != 0L)
+    val gallery = root(N("gallery_grid", top = 300, bottom = 2100), N("clips_gallery_item", top = 300, bottom = 800),
+        N("clips_camera_button", top = 100, bottom = 200), N(desc = "Reels", selected = true, top = 2150, bottom = 2250))
+    s = ig(gallery); check("photo/video picker (clips_* ids, 'Reels' mode label selected) -> not viewer", !s.viewer && s.ignored)
+    acts = run(Engine(), App.IG, gallery, 5, startAt = intArrayOf(0)); check("picker: no block at limit None", acts.isEmpty())
+    val camera = root(N("shutter_button", top = 2000, bottom = 2200), N("clips_camera_preview", top = 0, bottom = 2400),
+        N(desc = "Reels", selected = true, top = 2230, bottom = 2330))
+    s = ig(camera); check("camera -> not viewer", !s.viewer && s.ignored)
+    s = ig(root(N("clips_camera_button", top = 100, bottom = 200), N("clips_gallery_item", top = 300, bottom = 800)))
+    check("clips_* camera/gallery ids alone (no shutter, no tab) -> still not viewer", !s.viewer)
+    s = ig(root(*(igTabs("reels") + N("clips_camera_button", top = 100, bottom = 200) + N("clips_viewer_view_pager", top = 0, bottom = 2250)).toTypedArray()))
+    check("Reels tab with its own camera button -> still a viewer", s.viewer && !s.ignored)
+    s = ig(root(*(igTabs("reels") + N("clips_camera_button", top = 100, bottom = 200)).toTypedArray()))
+    check("Reels tab selected, only a camera button -> still a viewer", s.viewer)
+    val dmInbox = root(N("direct_tab", "Messages", selected = true, top = 2250, bottom = 2400), N("feed_tab", "Home", top = 2250, bottom = 2400),
+        N(desc = "Reel by someone", top = 500, bottom = 1700))
+    s = ig(dmInbox); check("DM inbox (Messages tab selected) -> ignored", s.ignored && !s.viewer)
+    val bottomLabel = root(N(desc = "Reels", selected = true, top = 2250, bottom = 2400))   // no Home tab visible = not a tab bar
+    s = ig(bottomLabel); check("a selected 'Reels' label without a tab bar is not the Reels tab", !s.viewer)
+
+    section("Feed auto-scroll is gentle (the bug: feed scrolled by itself)")
+    fresh(); Store.skipFeedReels = true; Store.followingOnly = true
+    e = Engine(); clk = intArrayOf(0)
+    // a feed where EVERY post has a Follow button (like yours): must not scroll forever
+    val allFollow = root(*(igTabs("home") + N(text = "Follow", top = 330, bottom = 420) + N(desc = "Reel by x", top = 400, bottom = 1500)).toTypedArray())
+    acts = run(e, App.IG, allFollow, 60, startAt = clk)
+    var nSkips = acts.count { it.second is Act.Skip }
+    check("60 s of an all-suggested feed: only a few skips (<=6)", nSkips in 3..6, "skips=$nSkips")
+    val firstTen = acts.filter { it.second is Act.Skip && it.first < 10_000 }.size
+    check("max 3 skips in a row at the start", firstTen in 1..3, "firstTen=$firstTen")
+    val gapOk = acts.filter { it.second is Act.Skip }.map { it.first }.zipWithNext().any { (a, b) -> b - a >= 29_000 }
+    check("then ~30 s of normal scrolling", gapOk)
+    fresh(); Store.followingOnly = false; Store.skipFeedReels = false
+    acts = run(Engine(), App.IG, allFollow, 20, startAt = intArrayOf(0))
+    check("both feed options OFF -> feed is never touched", acts.none { it.second is Act.Skip })
 
     // ============ STORE MATH ============
     section("Pace easing")

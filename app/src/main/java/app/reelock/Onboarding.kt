@@ -86,7 +86,7 @@ fun Onboarding(onDone: () -> Unit) {
     var apps by remember { mutableStateOf(setOf(App.IG, App.YT)) }
     val goals = remember { mutableStateMapOf(App.IG to 0, App.YT to 0) }
     var skipReels by remember { mutableStateOf(true) }
-    var followOnly by remember { mutableStateOf(true) }
+    var followOnly by remember { mutableStateOf(false) }
     var sleep by remember { mutableFloatStateOf(1380f) }
     var pace by remember { mutableIntStateOf(0) }
     var checks by remember { mutableIntStateOf(0) }
@@ -176,9 +176,9 @@ fun Onboarding(onDone: () -> Unit) {
                             }
                             if (App.IG in apps) Tile {
                                 Label("instagram home feed")
-                                SettingRow("Skip Reels in my feed", "Scrolls past Reels between posts. Stories always work.", skipReels) { skipReels = it }
+                                SettingRow("Skip big Reels in my feed", "Scrolls past a Reel that fills the screen. Stories always work.", skipReels) { skipReels = it }
                                 Divider()
-                                SettingRow("Only people I follow", "Scrolls past suggested posts and accounts you don't follow.", followOnly) { followOnly = it }
+                                SettingRow("Skip posts from accounts I don't follow", "Experimental. May scroll your feed a lot.", followOnly) { followOnly = it }
                             }
                         }
                         6 -> {

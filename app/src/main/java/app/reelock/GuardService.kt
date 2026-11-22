@@ -17,7 +17,8 @@ private class NodeAdapter(private val n: AccessibilityNodeInfo) : Nd {
     private val r: Rect by lazy { Rect().also { n.getBoundsInScreen(it) } }
     override val id: String? get() = n.viewIdResourceName?.substringAfter(":id/")
     override val desc: String? get() = n.contentDescription?.toString()
-    override val text: String? get() = n.text?.toString()
+    override val text: String? get() = (n.text ?: n.hintText)?.toString()
+    override val cls: String? get() = n.className?.toString()
     override val selected: Boolean get() = n.isSelected
     override val visible: Boolean get() = n.isVisibleToUser
     override val top: Int get() = r.top

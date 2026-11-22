@@ -304,9 +304,10 @@ fun ControlsTab(ver: Int, bump: () -> Unit, onRedo: () -> Unit) {
         Enter(3) {
             Tile {
                 Label("instagram home feed")
-                SettingRow("Skip Reels in my feed", "Scrolls past Reels that show up between posts. Stories always work.", Store.skipFeedReels) { Store.skipFeedReels = it; bump() }
+                SettingRow("Skip big Reels in my feed", "Scrolls past a Reel that fills the screen. Stories always work.", Store.skipFeedReels) { Store.skipFeedReels = it; bump() }
                 Divider()
-                SettingRow("Only people I follow", "Scrolls past suggested posts and accounts you don't follow.", Store.followingOnly) { Store.followingOnly = it; bump() }
+                SettingRow("Skip posts from accounts I don't follow", "Experimental. Most feeds are full of these, so the feed may scroll a lot.", Store.followingOnly) { Store.followingOnly = it; bump() }
+                Text("Tip: for a feed with only people you follow, tap the Instagram logo at the top of Home and choose Following.", color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
             }
         }
         Enter(4) {
@@ -375,7 +376,7 @@ fun ControlsTab(ver: Int, bump: () -> Unit, onRedo: () -> Unit) {
             }
             Tile {
                 Label("self-check")
-                Text("reels    ${ago(Diag.reelAt)}${if (Diag.reelHit.isNotEmpty()) " via " + Diag.reelHit else ""}\nstories  ${ago(Diag.storyAt)}\nfeed skip ${ago(Diag.skipAt)}",
+                Text("reels    ${ago(Diag.reelAt)}${if (Diag.reelHit.isNotEmpty()) " via " + Diag.reelHit else ""}\nstories  ${ago(Diag.storyAt)}\nfeed skip ${ago(Diag.skipAt)}\ndm/camera ignored ${ago(Diag.ignoredAt)}",
                     color = Paper, fontSize = 13.sp, lineHeight = 20.sp, fontFamily = Mono)
                 Text("Open a Reel, then a Story, then scroll your feed. Each line should change.", color = Muted, fontSize = 12.sp)
                 Label("diagnostics")
@@ -389,7 +390,7 @@ fun ControlsTab(ver: Int, bump: () -> Unit, onRedo: () -> Unit) {
         Enter(10) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Btn("Redo setup", filled = false) { onRedo() }
-                Text("$NAME v2.5. $TAGLINE\nNot affiliated with Instagram, Meta or YouTube.", color = Muted, fontSize = 12.sp,
+                Text("$NAME v2.6. $TAGLINE\nNot affiliated with Instagram, Meta or YouTube.", color = Muted, fontSize = 12.sp,
                     textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), lineHeight = 18.sp)
             }
         }

@@ -4,7 +4,8 @@ package app.reelock
 interface Nd {
     val id: String?        // view id without the "pkg:id/" prefix
     val desc: String?      // content description
-    val text: String?
+    val text: String?      // text (or hint for an empty input field)
+    val cls: String?       // view class name, e.g. android.widget.EditText
     val selected: Boolean
     val visible: Boolean
     val top: Int
@@ -16,8 +17,10 @@ interface Nd {
 class Scan {
     var viewer = false              // Reels / Shorts player (or the Reels tab) is showing
     var story = false               // Instagram story viewer (always allowed)
-    var home = false                // Instagram Home tab is selected
+    var home = false                // Instagram Home feed screen (Home tab selected, tab bar showing)
+    var ignored = false             // DM thread / photo-video picker / camera: never touched
     var feedReelBottom = -1         // bottom edge of a Reel sitting inside the home feed
+    var feedReelBig = false         // ... and it fills a good part of the screen (not a small thumbnail)
     var offFeedBottom = -1          // bottom edge of a post from someone you don't follow
     var hit = ""
 }
@@ -32,11 +35,16 @@ object Detector {
         return prefixes.any { l.startsWith(it, true) }
     }
 
+    /** View ids of screens where Reelock must never interfere: DM thread, photo/video picker, camera. */
+    private val IGNORE_IDS = listOf("gallery", "media_picker", "photo_picker", "shutter", "quick_capture",
+        "thread_composer", "direct_thread", "row_thread", "direct_text_message")
+
     /**
-     * Reels  = Reels tab selected, OR a full-screen "Reel by..." player, OR an Instagram "clips_*" view while Home is not selected,
-     *          OR a "Reels" title at the top of the screen (Reels opened from Explore / a profile / a DM).
-     * Story  = Instagram's "reel_viewer" views, but ONLY when none of the Reels signals above are present
-     *          (Instagram reuses "reel_viewer" names inside the Reels player, so they cannot be trusted alone).
+     * Reels  = the Reels / Shorts tab is selected on a visible tab bar, OR a full-screen "Reel by..." player,
+     *          OR a Reels-player view id ("clips_viewer...", "root_clips_layout" / YouTube "reel_recycler"...).
+     *          Deliberately NOT "any clips_* id": the camera and photo picker use those too.
+     * Story  = Instagram's "reel_viewer" views, but ONLY when none of the Reels signals are present.
+     * Ignored = DM thread (message box), photo/video picker, camera. Nothing is blocked or scrolled there.
      */
     fun scan(root: Nd, a: App, screenH: Int): Scan {
         val out = Scan()
@@ -46,10 +54,13 @@ object Detector {
         var strong: String? = null
         var strongBottom = -1
         var strongH = 0
-        var tabSel = false
+        var tabSelId = false          // the tab is recognised by its view id (clips_tab)
+        var tabSelDesc = false        // ... or by its label ("Reels" / "Shorts")
+        var tabBarVisible = false     // a Home tab is showing at the bottom of the screen
+        var homeSelected = false
         var player = false
         var storyId = false
-        var titleReels = false
+        var suppress = false
         val ids = LinkedHashSet<String>()
         while (stack.isNotEmpty() && n < 900) {
             val nd = stack.removeAt(stack.size - 1); n++
@@ -58,26 +69,33 @@ object Detector {
             val tx = nd.text
             if (id != null) {
                 if (ids.size < 70) ids.add(id)
-                if (Diag.seen.size < 250 && Regex("clip|reel|short|pager|viewer|tab").containsMatchIn(id)) Diag.seen.add(id)
+                if (Diag.seen.size < 250 && Regex("clip|reel|short|pager|viewer|tab|gallery|camera|thread").containsMatchIn(id)) Diag.seen.add(id)
             }
             if (cd != null && cd.length <= 12 && Diag.labels.size < 40 && cd.none { it.isDigit() }) Diag.labels.add(cd)
             if (nd.visible) {
                 val h = nd.bottom - nd.top
+                val atBottom = nd.top > screenH * 0.88f
                 if (a == App.IG) {
                     if (id != null && id.contains("reel_viewer", true)) storyId = true
-                    if (nd.selected && (id == "feed_tab" || (cd != null && cd.startsWith("Home", true)))) out.home = true
-                    if (strong == null && id != null && id != "clips_tab" && id.startsWith("clips_", true)) {
-                        strong = id; strongBottom = nd.bottom; strongH = h
-                    }
-                    if (tx != null && tx.equals("Reels", true) && nd.top < screenH * 0.14f) titleReels = true
-                } else if (strong == null && id != null && a.idHints.any { id.contains(it, true) }) {
-                    strong = id
+                    if (id != null && IGNORE_IDS.any { id.contains(it, true) }) suppress = true
+                    if (nd.cls?.contains("EditText", true) == true && (tx ?: cd)?.startsWith("Message", true) == true) suppress = true
+                    // the Messages tab itself is selected (DM inbox): hands off
+                    if (nd.selected && atBottom && (id == "direct_tab" || (cd != null && (cd.startsWith("Messages", true) || cd.startsWith("Direct", true))))) suppress = true
                 }
-                if (nd.selected && ((id != null && a.tabId != null && id == a.tabId) ||
-                            (cd != null && cd.startsWith(a.tabDesc, true)))) tabSel = true
+                if (atBottom && (id == "feed_tab" || (cd != null && cd.startsWith("Home", true)))) {
+                    tabBarVisible = true
+                    if (nd.selected) homeSelected = true
+                }
+                if (strong == null && id != null && a.idHints.any { id.contains(it, true) }) {
+                    strong = id; strongBottom = nd.bottom; strongH = h
+                }
+                if (nd.selected) {
+                    if (id != null && a.tabId != null && id == a.tabId) tabSelId = true
+                    else if (cd != null && atBottom && cd.startsWith(a.tabDesc, true)) tabSelDesc = true
+                }
                 if (cd != null && a.reelDesc != null && cd.contains(a.reelDesc, true)) {
                     if (h >= screenH * 0.6f) player = true
-                    else if (h >= screenH * 0.12f && out.feedReelBottom < 0) out.feedReelBottom = nd.bottom
+                    else if (h >= screenH * 0.12f && out.feedReelBottom < 0) { out.feedReelBottom = nd.bottom; out.feedReelBig = h >= screenH * 0.30f }
                 }
                 if (a == App.IG && out.offFeedBottom < 0) {
                     val label = tx ?: cd
@@ -88,15 +106,17 @@ object Detector {
             }
             stack.addAll(nd.children)
         }
-        // a "clips_*" view while Home is selected is a Reel inside the feed, not the player
+        val tabSel = tabSelId || (tabSelDesc && tabBarVisible)
+        out.home = a == App.IG && homeSelected && !suppress
+        // a Reels-player id while the Home feed is showing is a Reel inside the feed, not the player
         val strongIsViewer = strong != null && !(a == App.IG && out.home)
-        if (a == App.IG && out.home && strong != null && out.feedReelBottom < 0 && strongH >= screenH * 0.2f) out.feedReelBottom = strongBottom
-        out.viewer = tabSel || player || strongIsViewer || (a == App.IG && titleReels && !out.home)
-        out.story = a == App.IG && storyId && !out.viewer
-        out.hit = when {
-            tabSel -> "tab"; player -> "player"; strongIsViewer -> "id:$strong"
-            a == App.IG && titleReels && !out.home -> "title"; else -> ""
-        }
+        if (a == App.IG && out.home && strong != null && out.feedReelBottom < 0 && strongH >= screenH * 0.12f) { out.feedReelBottom = strongBottom; out.feedReelBig = strongH >= screenH * 0.30f }
+        var viewer = tabSel || player || strongIsViewer
+        if (suppress && !tabSel) { viewer = false; out.ignored = true; out.feedReelBottom = -1; out.feedReelBig = false; out.offFeedBottom = -1 }
+        out.viewer = viewer
+        out.story = a == App.IG && storyId && !viewer && !suppress
+        out.hit = when { tabSel -> "tab"; player -> "player"; strongIsViewer -> "id:$strong"; else -> "" }
+        if (out.ignored) out.hit = ""
         Diag.scans++; Diag.hit = out.hit
         Diag.ids = ids.joinToString(", ")
         return out
@@ -118,6 +138,8 @@ class Engine {
     private var curApp: App? = null
     private var lastBlock = Long.MIN_VALUE / 2
     private var lastSkip = Long.MIN_VALUE / 2
+    private var burst = 0
+    private var pausedUntil = 0L
 
     /** Hard reset: the user left the Reels / app. Nothing is credited for the time in between. */
     fun reset() {
@@ -131,6 +153,9 @@ class Engine {
     fun step(a: App, s: Scan, now: Long): List<Act> {
         val out = ArrayList<Act>()
         if (!Store.enabled(a)) { reset(); lastStep = now; return out }
+        if (s.ignored) {                                 // DM thread / photo picker / camera: hands off
+            Diag.note = "dm / picker / camera (ignored)"; Diag.ignoredAt = Store.now(); reset(); lastStep = now; return out
+        }
         if (s.story) {                                   // stories are always allowed
             Diag.note = "story (allowed)"; Diag.storyAt = Store.now(); reset(); lastStep = now; return out
         }
@@ -168,15 +193,25 @@ class Engine {
         if (gapStart >= 0 && now - gapStart > 2000L) reset()
         wasViewer = false; lastStep = now
         Diag.countAt = 0L                                // never show "counting" while no Reel is on screen
-        // Home feed clean-up (Instagram only): skip Reels and not-followed posts between your posts
+        // Home feed clean-up (Instagram only). Gentle on purpose: only big Reels / suggested posts, at most
+        // 3 skips in a row, then 30 s of normal scrolling so the feed never "runs away" from you.
         if (a == App.IG && s.home && !Store.passActive()) {
-            if (Store.skipFeedReels && s.feedReelBottom >= 0) {
-                Diag.note = "skipping feed reel"
-                if (now - lastSkip >= 1100) { lastSkip = now; Diag.skipAt = Store.now(); Store.addBlock(); out.add(Act.Skip(s.feedReelBottom)) }
-            } else if (Store.followingOnly && s.offFeedBottom >= 0) {
-                Diag.note = "skipping suggested post"
-                if (now - lastSkip >= 1100) { lastSkip = now; Diag.skipAt = Store.now(); Store.addBlock(); out.add(Act.Skip(s.offFeedBottom)) }
-            } else Diag.note = "home feed ok"
+            val wantReel = Store.skipFeedReels && s.feedReelBottom >= 0 && s.feedReelBig
+            val wantOff = Store.followingOnly && s.offFeedBottom >= 0
+            when {
+                now < pausedUntil -> Diag.note = "feed skipping paused (you scroll)"
+                wantReel || wantOff -> {
+                    Diag.note = if (wantReel) "skipping feed reel" else "skipping suggested post"
+                    if (now - lastSkip >= 1800) {
+                        if (burst >= 3) { pausedUntil = now + 30_000L; burst = 0 }
+                        else {
+                            burst++; lastSkip = now; Diag.skipAt = Store.now(); Store.addBlock()
+                            out.add(Act.Skip(if (wantReel) s.feedReelBottom else s.offFeedBottom))
+                        }
+                    }
+                }
+                else -> { Diag.note = "home feed ok"; if (now - lastSkip > 10_000L) burst = 0 }
+            }
         }
         return out
     }
