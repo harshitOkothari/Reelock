@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -322,14 +323,14 @@ fun RulerPicker(value: Float, min: Float, max: Float, step: Float, onChange: (Fl
             if (i != last) { last = i; hap.performHapticFeedback(HapticFeedbackType.TextHandleMove); cb(min + i * step) }
         }
     }
-    val drag = rememberDraggableState { dx -> scope.launch { pos.snapTo((pos.value - dx / spacing).coerceIn(0f, n.toFloat())) } }
+    val drag = rememberDraggableState { dx -> scope.launch(start = CoroutineStart.UNDISPATCHED) { pos.snapTo((pos.value - dx / spacing).coerceIn(0f, n.toFloat())) } }
     Canvas(
         modifier.fillMaxWidth().height(84.dp).draggable(
             drag, Orientation.Horizontal,
             onDragStarted = { dragging = true; pos.stop() },
             onDragStopped = { v ->
                 pos.animateDecay(-v / spacing, exponentialDecay(frictionMultiplier = 2.2f))
-                pos.animateTo(pos.value.roundToInt().toFloat(), spring(stiffness = 300f))
+                pos.animateTo(pos.value.roundToInt().toFloat(), spring(dampingRatio = 1f, stiffness = 380f))
                 dragging = false
             }
         )

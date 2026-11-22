@@ -40,6 +40,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.RoundRect
@@ -170,12 +172,12 @@ fun WaterPopup(startHelp: Boolean = false, onOpenApp: (() -> Unit)? = null, onCl
     }
 
     Box(
-        Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.62f * a.value.coerceIn(0f, 1f))).tap { close() },
+        Modifier.fillMaxSize().drawBehind { drawRect(Color.Black.copy(alpha = 0.62f * a.value.coerceIn(0f, 1f))) }.tap { close() },
         contentAlignment = Alignment.Center
     ) {
         val shape = RoundedCornerShape(28.dp)
         Column(
-            Modifier.statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 16.dp)
+            Modifier.statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)
                 .widthIn(max = 420.dp).fillMaxWidth()
                 .graphicsLayer {
                     alpha = a.value.coerceIn(0f, 1f)
@@ -185,72 +187,60 @@ fun WaterPopup(startHelp: Boolean = false, onOpenApp: (() -> Unit)? = null, onCl
                 .clip(shape).background(Panel).border(1.dp, Rule, shape)
                 .tap { cancelClose() }                       // a tap on the card keeps it open; it never closes it
                 .verticalScroll(rememberScrollState())
-                .padding(20.dp)
+                .padding(18.dp)
         ) {
             AnimatedContent(
                 targetState = help, label = "page",
                 transitionSpec = { fadeIn(tween(160, delayMillis = 60)) togetherWith fadeOut(tween(90)) }
             ) { h ->
-                if (h) HelpPage { help = false } else Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                if (h) HelpPage { help = false } else Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Label("water  /  today"); Spacer(Modifier.weight(1f))
                         Box(
-                            Modifier.size(30.dp).tap { cancelClose(); help = true }.clip(CircleShape).border(1.dp, Rule, CircleShape),
+                            Modifier.size(28.dp).tap { cancelClose(); help = true }.clip(CircleShape).border(1.dp, Rule, CircleShape),
                             contentAlignment = Alignment.Center
-                        ) { Text("?", color = Aqua, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+                        ) { Text("?", color = Aqua, fontSize = 14.sp, fontWeight = FontWeight.Bold) }
                         Box(Modifier.tap { close() }.padding(start = 14.dp, top = 6.dp, bottom = 6.dp)) { Label("close") }
                     }
 
                     // ---- glass + numbers ----
-                    run {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                            Box(Modifier.width(98.dp).height(168.dp), contentAlignment = Alignment.Center) {
-                                WaterGlass(total / goal.coerceAtLeast(1).toFloat(), Modifier.fillMaxSize(), wave = true)
-                                if (flash > 0) key(flash) { FloatUp("+${ml(flashMl)}") }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Box(Modifier.width(82.dp).height(118.dp), contentAlignment = Alignment.Center) {
+                            WaterGlass(total / goal.coerceAtLeast(1).toFloat(), Modifier.fillMaxSize(), wave = true)
+                            if (flash > 0) key(flash) { FloatUp("+${ml(flashMl)}") }
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                CountText(total, { ml(it) }, 44.sp, Paper, 450)
+                                Text(" ml", color = Muted, fontSize = 15.sp, modifier = Modifier.padding(bottom = 6.dp))
                             }
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Row(verticalAlignment = Alignment.Bottom) {
-                                    CountText(total, { ml(it) }, 52.sp, Paper, 450)
-                                    Text(" ml", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(bottom = 8.dp))
-                                }
-                                Text("of ${ml(goal)} ml target", color = Paper, fontSize = 14.sp)
-                                if (total >= goal) Label("target hit", Aqua) else Label("${ml(goal - total)} ml to go")
-                                Spacer(Modifier.height(10.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Label("target"); Spacer(Modifier.weight(1f))
-                                    StepKey("-") { Store.waterGoal = goal - 250; goal = Store.waterGoal; cancelClose() }
-                                    StepKey("+") { Store.waterGoal = goal + 250; goal = Store.waterGoal; cancelClose() }
-                                }
+                            Text("of ${ml(goal)} ml target", color = Paper, fontSize = 13.sp)
+                            if (total >= goal) Label("target hit", Aqua) else Label("${ml(goal - total)} ml to go")
+                            Spacer(Modifier.height(6.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Label("target"); Spacer(Modifier.weight(1f))
+                                StepKey("-") { Store.waterGoal = goal - 250; goal = Store.waterGoal; cancelClose() }
+                                StepKey("+") { Store.waterGoal = goal + 250; goal = Store.waterGoal; cancelClose() }
                             }
                         }
                     }
 
                     // ---- one-tap amounts ----
-                    run {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Label("quick add")
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                listOf(100, 250, 500).forEach { n ->
-                                    QuickAmt(n, lit == n, Modifier.weight(1f)) {
-                                        hap.performHapticFeedback(HapticFeedbackType.LongPress); add(n)
-                                    }
-                                }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(100, 250, 500).forEach { n ->
+                            QuickAmt(n, lit == n, Modifier.weight(1f)) {
+                                hap.performHapticFeedback(HapticFeedbackType.LongPress); add(n)
                             }
                         }
                     }
 
                     // ---- exact amount ----
-                    run {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Label("or set an exact amount")
-                            Row(verticalAlignment = Alignment.Bottom) {
-                                Display("${pick.roundToInt()}", 48.sp, Aqua)
-                                Text(" ml", color = Muted, fontSize = 16.sp, modifier = Modifier.padding(bottom = 8.dp))
-                            }
-                            RulerPicker(pick, 0f, 1000f, 50f, { pick = it; cancelClose() }, color = Aqua)
-                            Btn("Add ${pick.roundToInt()} ml", enabled = pick.roundToInt() >= 50, color = Aqua) { add(pick.roundToInt()) }
-                        }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Label("or slide for an exact amount"); Spacer(Modifier.weight(1f))
+                        Text("${pick.roundToInt()} ml", color = Aqua, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     }
+                    RulerPicker(pick, 0f, 1000f, 50f, { pick = it; cancelClose() }, Modifier.height(58.dp), Aqua)
+                    Btn("Add ${pick.roundToInt()} ml", enabled = pick.roundToInt() >= 50, color = Aqua) { add(pick.roundToInt()) }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         AnimatedVisibility(visible = last > 0) {
@@ -268,10 +258,10 @@ fun WaterPopup(startHelp: Boolean = false, onOpenApp: (() -> Unit)? = null, onCl
                         }.padding(vertical = 4.dp)) { Label("open reelock") }
                     }
 
-                    // shows how long until the popup closes itself; any tap or drag keeps it open
+                    // time left before the popup closes itself; any tap or drag keeps it open (drawn, not recomposed, so it stays smooth)
                     AnimatedVisibility(visible = pending) {
                         Box(Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)).background(Rule)) {
-                            Box(Modifier.fillMaxHeight().fillMaxWidth(bar.value).background(Aqua))
+                            Box(Modifier.fillMaxSize().graphicsLayer { scaleX = bar.value; transformOrigin = TransformOrigin(0f, 0.5f) }.background(Aqua))
                         }
                     }
                 }
@@ -287,10 +277,10 @@ private fun QuickAmt(n: Int, lit: Boolean, modifier: Modifier, onClick: () -> Un
     val bg by animateColorAsState(if (lit) Aqua else Color.Transparent, tween(100), label = "qa")
     val bd by animateColorAsState(if (lit) Aqua else Paper.copy(alpha = 0.5f), tween(100), label = "qb")
     Column(
-        modifier.bounceClick(onClick = onClick).clip(sh).background(bg).border(1.5.dp, bd, sh).padding(vertical = 12.dp),
+        modifier.bounceClick(onClick = onClick).clip(sh).background(bg).border(1.5.dp, bd, sh).padding(vertical = 9.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Display("$n", 28.sp, if (lit) Ink else Paper)
+        Display("$n", 24.sp, if (lit) Ink else Paper)
         Label("ml", if (lit) Ink else Muted)
     }
 }
@@ -300,7 +290,7 @@ private fun StepKey(t: String, onClick: () -> Unit) {
     val hap = LocalHapticFeedback.current
     val sh = RoundedCornerShape(12.dp)
     Box(
-        Modifier.size(40.dp).bounceClick { hap.performHapticFeedback(HapticFeedbackType.LongPress); onClick() }
+        Modifier.size(36.dp).bounceClick { hap.performHapticFeedback(HapticFeedbackType.LongPress); onClick() }
             .clip(sh).border(1.dp, Rule, sh),
         contentAlignment = Alignment.Center
     ) { Text(t, color = Paper, fontSize = 20.sp, fontWeight = FontWeight.SemiBold) }
@@ -360,7 +350,7 @@ private fun wavePath(w: Float, h: Float, top: Float, amp: Float, phase: Float): 
     p.moveTo(0f, h)
     p.lineTo(0f, top + sin(phase) * amp)
     var x = 0f
-    while (x < w) { p.lineTo(x, top + sin(x / w * 6.2832f + phase) * amp); x += 4f }
+    while (x < w) { p.lineTo(x, top + sin(x / w * 6.2832f + phase) * amp); x += 6f }
     p.lineTo(w, top + sin(6.2832f + phase) * amp)
     p.lineTo(w, h)
     p.close()
@@ -377,7 +367,7 @@ fun WaterGlass(frac: Float, modifier: Modifier = Modifier, wave: Boolean = true)
     Canvas(modifier) {
         val gw = size.width - 14.dp.toPx()          // the right-hand strip holds the 25/50/75% ticks
         val h = size.height
-        val r = 22.dp.toPx()
+        val r = 18.dp.toPx()
         val glass = Path().apply { addRoundRect(RoundRect(0f, 0f, gw, h, CornerRadius(r, r))) }
         drawPath(glass, Ink)
         clipPath(glass) {
@@ -433,8 +423,10 @@ fun WaterWeek(week: List<Pair<java.time.LocalDate, Int>>, goal: Int) {
 }
 
 // =============================== TODAY TAB TILE ===============================
+/** [ver] ticks every 500 ms in the Today tab. Without it Compose skips this tile (it has no inputs) and never re-reads the water log. */
 @Composable
-fun WaterTile() {
+fun WaterTile(ver: Int) {
+    val v = ver
     val ctx = LocalContext.current
     val total = Store.waterToday()
     val goal = Store.waterGoal
@@ -447,7 +439,7 @@ fun WaterTile() {
             Label("tap to log", Aqua)
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            WaterGlass(total / goal.coerceAtLeast(1).toFloat(), Modifier.width(64.dp).height(108.dp), wave = false)
+            WaterGlass(total / goal.coerceAtLeast(1).toFloat(), Modifier.width(60.dp).height(100.dp), wave = false)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     CountText(total, { ml(it) }, 40.sp, Paper, 450)
