@@ -1,5 +1,6 @@
 package app.reelock
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -34,6 +35,13 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
+    private var water by mutableStateOf(false)
+    private var session by mutableIntStateOf(0)
+
+    /** Opened by something other than a tap on the icon (Samsung RegiStar sends no "tap position"). */
+    private fun isBackTap(i: Intent?) =
+        i != null && Store.waterTap && i.action == Intent.ACTION_MAIN && i.sourceBounds == null && !i.getBooleanExtra("open", false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
@@ -41,25 +49,38 @@ class MainActivity : ComponentActivity() {
         )
         super.onCreate(savedInstanceState)
         Store.init(this)
+        // One app, one icon. A back-tap launch draws the water popup right here: no second activity, so it opens fast.
+        water = savedInstanceState == null && isBackTap(intent)
         Pal.idx = Store.theme
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 ProvideTextStyle(TextStyle(fontFamily = Body)) {
-                    var splash by remember { mutableStateOf(true) }
-                    var ob by remember { mutableStateOf(Store.onboarded) }
-                    var consent by remember { mutableStateOf(Store.consent) }
-                    LaunchedEffect(Unit) { delay(1600); splash = false }
-                    Crossfade(targetState = splash, animationSpec = tween(400), label = "splash") { sp ->
-                        when {
-                            sp -> Splash()
-                            !ob -> Onboarding { ob = true; consent = Store.consent }
-                            !consent -> ConsentGate { consent = true }
-                            else -> Shell { Store.onboarded = false; ob = false }
+                    if (water) {
+                        key(session) { WaterPopup(onOpenApp = { water = false }) { finish() } }
+                    } else {
+                        var splash by remember { mutableStateOf(true) }
+                        var ob by remember { mutableStateOf(Store.onboarded) }
+                        var consent by remember { mutableStateOf(Store.consent) }
+                        LaunchedEffect(Unit) { delay(1600); splash = false }
+                        Crossfade(targetState = splash, animationSpec = tween(400), label = "splash") { sp ->
+                            when {
+                                sp -> Splash()
+                                !ob -> Onboarding { ob = true; consent = Store.consent }
+                                !consent -> ConsentGate { consent = true }
+                                else -> Shell { Store.onboarded = false; ob = false }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    /** Reelock already running: back-tap -> popup in its own window, icon tap -> the app. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (isBackTap(intent)) { if (water) session++ else openWater(this) } else water = false
     }
 }
 

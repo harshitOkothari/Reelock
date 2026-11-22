@@ -313,6 +313,13 @@ fun ControlsTab(ver: Int, bump: () -> Unit, onRedo: () -> Unit) {
         }
         Enter(4) {
             Tile {
+                Label("water")
+                SettingRow("Back-tap opens the water popup", "When Reelock is opened by Samsung RegiStar (not by tapping its icon), show the quick water window instead of the app.", Store.waterTap) { Store.waterTap = it; bump() }
+                Btn("How to set up back-tap", filled = false) { openWater(ctx, help = true) }
+            }
+        }
+        Enter(4) {
+            Tile {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("Sleep Mode", color = Paper, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)

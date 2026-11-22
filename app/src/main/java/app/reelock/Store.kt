@@ -141,6 +141,10 @@ object Store {
     var waterPick: Int
         get() = sp.getInt("w_pick", 250)
         set(v) = putI("w_pick", v)
+    /** opening Reelock from something other than the launcher (e.g. Samsung RegiStar back-tap) shows the water popup */
+    var waterTap: Boolean
+        get() = sp.getBoolean("w_tap", true)
+        set(v) = putB("w_tap", v)
     fun waterOn(d: LocalDate) = sp.getInt("wt_${k(d)}", 0)
     fun waterToday() = waterOn(today())
     /** adds (or, with a negative number, removes) water for today, then drops everything older than 7 days */

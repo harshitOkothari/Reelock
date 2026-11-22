@@ -146,8 +146,8 @@ fun Title(t: String, sub: String? = null) = Column(verticalArrangement = Arrange
 }
 
 @Composable
-fun CountText(target: Int, fmt: (Int) -> String, size: TextUnit, color: Color = Paper) {
-    val v by animateIntAsState(target, tween(1000, easing = FastOutSlowInEasing), label = "count")
+fun CountText(target: Int, fmt: (Int) -> String, size: TextUnit, color: Color = Paper, ms: Int = 1000) {
+    val v by animateIntAsState(target, tween(ms, easing = FastOutSlowInEasing), label = "count")
     Display(fmt(v), size, color)
 }
 
@@ -175,13 +175,13 @@ fun Divider() = Box(Modifier.fillMaxWidth().height(1.dp).background(Rule))
 
 // ---------- controls ----------
 @Composable
-fun Btn(text: String, filled: Boolean = true, enabled: Boolean = true, onClick: () -> Unit) {
+fun Btn(text: String, filled: Boolean = true, enabled: Boolean = true, color: Color = Accent, onClick: () -> Unit) {
     val hap = LocalHapticFeedback.current
     val shape = RoundedCornerShape(18.dp)
     Box(
         Modifier.fillMaxWidth().height(58.dp).bounceClick(enabled) { hap.performHapticFeedback(HapticFeedbackType.LongPress); onClick() }
             .clip(shape)
-            .then(if (filled) Modifier.background(if (enabled) Accent else Rule) else Modifier.border(1.5.dp, if (enabled) Paper else Rule, shape)),
+            .then(if (filled) Modifier.background(if (enabled) color else Rule) else Modifier.border(1.5.dp, if (enabled) Paper else Rule, shape)),
         contentAlignment = Alignment.Center
     ) {
         Text(text, color = if (filled) (if (enabled) Ink else Muted) else Paper, fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -303,7 +303,7 @@ fun ThemeSwatches(selected: Int, onPick: (Int) -> Unit) {
 
 // ---------- ruler picker ----------
 @Composable
-fun RulerPicker(value: Float, min: Float, max: Float, step: Float, onChange: (Float) -> Unit, modifier: Modifier = Modifier) {
+fun RulerPicker(value: Float, min: Float, max: Float, step: Float, onChange: (Float) -> Unit, modifier: Modifier = Modifier, color: Color = Accent) {
     val n = ((max - min) / step).roundToInt()
     val spacing = with(LocalDensity.current) { 14.dp.toPx() }
     val pos = remember { Animatable((value - min) / step) }
@@ -312,7 +312,7 @@ fun RulerPicker(value: Float, min: Float, max: Float, step: Float, onChange: (Fl
     var dragging by remember { mutableStateOf(false) }
     var last by remember { mutableIntStateOf(pos.value.roundToInt()) }
     val cb by rememberUpdatedState(onChange)
-    val accent = Accent
+    val accent = color
     LaunchedEffect(Unit) { pos.updateBounds(0f, n.toFloat()) }
     LaunchedEffect(value) {
         if (!dragging) { val t = (value - min) / step; if (abs(pos.value - t) > 0.01f) pos.animateTo(t) }
@@ -443,10 +443,10 @@ fun DayTicks(score: Int, color: Color) {
 }
 
 @Composable
-fun Burst() {
+fun Burst(color: Color = Accent) {
     val t = remember { Animatable(0f) }
     LaunchedEffect(Unit) { t.animateTo(1f, tween(1200, easing = FastOutSlowInEasing)) }
-    val accent = Accent
+    val accent = color
     Canvas(Modifier.fillMaxSize()) {
         val c = center
         val maxR = size.minDimension * 0.6f

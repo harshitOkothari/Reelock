@@ -7,7 +7,7 @@ Features: daily limits (None/5/10/15/20 min per app), Reel Pass, Focus Lock, Sle
 
 ## Water popup (new)
 Triple-tap the back of a Samsung phone -> a small "how much water?" window opens over whatever app you are in. Pick 100 / 250 / 500 ml with one tap or set an exact amount on the ruler; the glass fills toward your daily target and the window closes itself. Only the last 7 days are stored. It is a see-through activity (`WaterActivity`), so no overlay permission and no background service.
-Setup: Good Lock > RegiStar > Back-tap action > Triple tap > Open app > **Reelock Water**. Also available as the long-press shortcut on the Reelock icon and as a tile on the Today tab.
+Setup: Good Lock > RegiStar > Back-tap action > Triple tap > Open app > **Reelock** (single app icon; a launch that is not an icon tap opens the popup, switch in Controls > water). Water is always blue. A "?" button in the popup (and "help" on the Today tile, or Controls > water) walks through the setup and opens Good Lock. Also available as the long-press shortcut on the Reelock icon and as a tile on the Today tab.
 
 ## Build
 Push to GitHub -> Actions -> "Build" -> artifacts: `Reelock-apk` (install on phone) and `Reelock-playstore-aab` (Play Console).
